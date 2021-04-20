@@ -1,0 +1,21 @@
+{
+  "name": "impersonator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": "12.17.0",
+    "npm": "*"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^12.4.1",
+    "dotenv-flow": "^3.2.0",
+    "mongoose": "^5.10.2"
+  }
+}
