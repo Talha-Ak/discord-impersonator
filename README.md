@@ -3,7 +3,7 @@
 
 <img src="https://user-images.githubusercontent.com/30045102/132047312-ce7c9ea4-d8e4-4c32-85c4-62dd2bd1624e.gif" alt="Demo of /say command" title="Demo of /say command" width="450px" align="right">
 
-This repository is a mirror of a private repository hosting [the impersonator Discord bot](https://discord.com/oauth2/authorize?client_id=749282568733458545&scope=bot&permissions=537160768). This repository removes most details specific to our bot (like database urls, user content encryption, non-interaction based command handling).
+This repository is a mirror of a private repository hosting [the impersonator Discord bot](https://discord.com/api/oauth2/authorize?client_id=749282568733458545&permissions=536898624&scope=bot%20applications.commands). This repository removes most details specific to our bot (like database urls, user content encryption, non-interaction based command handling).
 
 This bot has been updated to utilise Discord's new 'Interaction' based API, namely [Slash Commands](https://discord.com/developers/docs/interactions/application-commands#slash-commands). Slash commands provide the benefit of command discoverability, as well as moving responsiblity of user input validation to the Discord client and servers.
 
