@@ -1,27 +1,25 @@
-const { Client, Message } = require('discord.js');
+const { SlashCommandBuilder } = require('@discordjs/builders');
 
-/**
- * Provides eval command to bot owners.
- * Command format: impeval <code>
- * @param {Client} client
- * @param {Message} message
- * @param {string[]} args
- */
-exports.run = async (client, message, args) => {
-
+const execute = async (interaction) => {
     // Only allow bot owners to use command.
-    if (!client.config.owners.includes(message.author.id)) return;
+    if (!interaction.client.config.owners.includes(interaction.user.id)) {
+        await interaction.reply({ content: '❗ You cannot run that command.', ephemeral: true });
+        return;
+    }
 
-    const code = args.join(' ');
+    // Defer so enough time is given to run command.
+    await interaction.deferReply();
+    const code = interaction.options.getString('expression');
 
     try {
         const evaled = eval(code);
-        const clean = await cleanOutput(client, evaled);
+        const clean = await cleanOutput(interaction.client, evaled);
 
         // If output exceeds Discord message limit, export output to file.
         const MAX_CHARS = 3 + 2 + clean.length + 3;
         if (MAX_CHARS > 2000) {
-            return message.channel.send('Output exceeded 2000 chars. Output exported to file.', {
+            return interaction.editReply({
+                content: 'Output exceeded 2000 chars. Output exported to file.',
                 files: [{
                     attachment: Buffer.from(clean),
                     name: 'output.txt',
@@ -29,15 +27,16 @@ exports.run = async (client, message, args) => {
             });
         }
 
-        return message.channel.send(clean, { code: 'js' });
-    } catch (err) {
-        message.channel.send(await cleanOutput(client, err), { code: 'bash' });
+        return interaction.editReply(`\`\`\`js\n${clean}\n\`\`\``);
+
+    } catch (error) {
+        interaction.editReply(`\`\`\`bash\n${await cleanOutput(interaction.client, error)}\n\`\`\``);
     }
 };
 
 // Cleans the output from any private content.
 async function cleanOutput(client, text) {
-    if (text && text.constructor.name == 'Promise') text = await text;
+    if (text && text.constructor.name === 'Promise') text = await text;
     if (typeof text !== 'string') text = require('util').inspect(text);
 
     // Prevent mentions from happening, hide any token leak.
@@ -48,3 +47,15 @@ async function cleanOutput(client, text) {
 
     return text;
 }
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('eval')
+        .setDescription('Evaluate a JavaScript expression')
+        .addStringOption(opt =>
+            opt.setName('expression')
+                .setDescription('The expression to evaluate')
+                .setRequired(true)),
+    private: true,
+    execute,
+};

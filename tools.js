@@ -1,80 +1,64 @@
-const { TextChannel, Guild, Client } = require('discord.js');
+const { Permissions } = require('discord.js');
+
+/**
+ * Tries to repair missing webhooks that can't be found, either by looking through existing webhooks or creating
+ * a new webhook.
+ * @param {import('discord.js').Guild} guild
+ */
+const repairMissingWebhook = async (guild, dbGuildInfo) => {
+
+    // Get all existing webhooks and find the webhook which the bot created itself.
+    const guildWebhooks = await guild.fetchWebhooks();
+    let foundWebhook = guildWebhooks.find(hook => hook.owner ? hook.owner.id === guild.me.id : false);
+
+    // If not found, make a new webhook.
+    if (!foundWebhook) {
+        const availableChannel = getAvailableTextChannel(guild, guild.systemChannel);
+        foundWebhook = await availableChannel.createWebhook(guild.client.config.webhookName, {
+            avatar: guild.client.config.webhookAvatar,
+            reason: 'Impersonator couldn\'t find the existing webhook when needed.',
+        });
+    }
+
+    // Persist the id of the webhook to the db.
+    dbGuildInfo.webhookID = foundWebhook.id;
+    await guild.client.updateGuildInDb(guild, dbGuildInfo);
+
+    return foundWebhook;
+};
+
+/**
+ * Check if the bot can use the given text channel, else find the next channel that the bot can use.
+ * This is legacy code, will be removed once messages are replaced with interactions.
+ * @param {import('discord.js').Guild} guild
+ * @param {import('discord.js').TextChannel} preferredChannel
+ * @returns {import('discord.js').TextChannel}
+ */
+const getAvailableTextChannel = (guild, preferredChannel) => {
+    const neededPerms = [Permissions.FLAGS.VIEW_CHANNEL, Permissions.FLAGS.SEND_MESSAGES];
+
+    // Find first channel with the required perms to send & receive messages.
+    // (Loose equality to cover null and undefined)
+    if (preferredChannel == null || !preferredChannel.permissionsFor(guild.me).has(neededPerms)) {
+        preferredChannel = guild.channels.cache.find(c => c.type === 'GUILD_TEXT' && c.permissionsFor(guild.me).has(neededPerms));
+    }
+
+    // If not found, resort to the first channel available.
+    if (preferredChannel == null || !preferredChannel.permissionsFor(guild.me).has(neededPerms)) {
+        preferredChannel = guild.channels.cache.first();
+    }
+    return preferredChannel;
+};
+
+
+const embedWarnColour = '#ff0000';
+const embedNeutralColour = '#0c4880';
+const embedNoColour = '#2f3136';
 
 module.exports = {
-
-    /**
-     * Tries to repair missing webhooks that can't be found, either by looking through existing webhooks or creating
-     * a new webhook.
-     * @param {Client} client
-     * @param {Guild} guild
-     */
-    repairMissingWebhook: async function(client, guild, guildInfo) {
-
-        // Get all existing webhooks and find the webhook which the bot created itself.
-        const guildWebhooks = await guild.fetchWebhooks();
-        let missingWebhook = guildWebhooks.find(hook => hook.owner ? hook.owner.id === client.user.id : false);
-
-        try {
-            // If found, "reset" the webhook.
-            if (missingWebhook) {
-                await missingWebhook.edit({ name: client.config.webhookName, avatar: client.config.webhookAvatar }, 'Change webhook to default details');
-                this.sendToLogs(client, `Found the missing webhook in ${guild.name} | ${guild.id}`);
-            } else {
-                // If not found, make a new webhook.
-                const availableChannel = this.getAvailableTextChannel(guild, guild.systemChannel);
-                missingWebhook = await availableChannel.createWebhook(client.config.webhookName, {
-                    avatar: client.config.webhookAvatar,
-                    reason: 'Impersonator couldn\'t find the existing webhook when needed.',
-                });
-                this.sendToLogs(client, `Couldn't find webhook. Making new webhook in ${guild.name} | ${guild.id}`);
-            }
-
-            // Persist the id of the webhook to the db.
-            guildInfo.webhookID = missingWebhook.id;
-            await client.updateGuildInDb(guild, guildInfo);
-
-        } catch (err) {
-            this.sendToLogs(client, `🔥 Couldn't repair webhook! ${guild.name} | ${guild.id}`);
-            this.sendToLogs(client, err.stack);
-            console.error(err);
-        }
-
-        return missingWebhook;
-    },
-
-    /**
-     * Check if the bot can use the given text channel, else find the next channel that the bot can use.
-     * @param {Guild} guild
-     * @param {TextChannel} preferredChannel
-     * @returns {TextChannel}
-     */
-    getAvailableTextChannel: function(guild, preferredChannel) {
-        const neededPerms = ['VIEW_CHANNEL', 'SEND_MESSAGES'];
-        if (preferredChannel == null || !preferredChannel.permissionsFor(guild.me).has(neededPerms)) {
-            preferredChannel = guild.channels.cache.find(c => c.type === 'text' && c.permissionsFor(guild.me).has(neededPerms));
-        }
-        if (preferredChannel == null || !preferredChannel.permissionsFor(guild.me).has(neededPerms)) {
-            preferredChannel = guild.channels.cache.first();
-        }
-        return preferredChannel;
-    },
-
-    /**
-     * Send a message to a logging channel which records bot joins / leaves.
-     * @param {Client} client
-     * @param {string} message
-     */
-    sendToJoins: function(client, message) {
-        client.channels.cache.get(client.config.logJoinsChannel).send(message);
-    },
-
-    /**
-     * Send a message to a general logging channel.
-     * @param {Client} client
-     * @param {string} message
-     */
-    sendToLogs: function(client, message) {
-        client.channels.cache.get(client.config.logChannel).send(message);
-    },
-
+    repairMissingWebhook,
+    getAvailableTextChannel,
+    embedWarnColour,
+    embedNeutralColour,
+    embedNoColour,
 };

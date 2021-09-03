@@ -1,33 +1,46 @@
-const { Client, Message } = require('discord.js');
+const { MessageEmbed } = require('discord.js');
+const { SlashCommandBuilder } = require('@discordjs/builders');
 const tools = require('../tools');
 
-/**
- * Takes the message after this command and persists it to that guild's entry in the db.
- * Command format: impadd <message>
- * @param {Client} client
- * @param {Message} message
- * @param {string[]} args
- */
-exports.run = async (client, message, args, guildInfo) => {
+const execute = async (interaction, dbGuildInfo) => {
+    // Defer reply so we have enough time to respond.
+    await interaction.deferReply();
+    const message = interaction.options.getString('message');
 
-    // Check if guild exceeded their 20 character limit.
-    if (guildInfo.welcomeMsgs.length >= 20) {
-        message.channel.send('You cannot add any more mesages. (20 message limit)');
-        client.commands.get('implist').run(client, message, '');
-        return;
+    // Reject add if it will exceed their 20 message limit.
+    if (dbGuildInfo.welcomeMsgs.length >= 20) {
+        return await interaction.editReply({ embeds: [getLimitReachedEmbed(true)] });
     }
 
-    // If no message given, show usage info.
-    const newWelcome = args.join(' ');
-    if (newWelcome.length < 1) {
-        return message.channel.send(`Usage: ${guildInfo.prefix}impadd \`message\``);
+    dbGuildInfo.welcomeMsgs.push(message);
+
+    // Push new message list to database.
+    try {
+        await interaction.client.updateGuildInDb(interaction.guild, dbGuildInfo);
+        await interaction.editReply({
+            embeds: [new MessageEmbed()
+                .setTitle('Message added')
+                .setColor(tools.embedNeutralColour)
+                .setDescription(`\`${message}\``).setFooter(`/list to see all existing messages — ${dbGuildInfo.welcomeMsgs.length} / 20`)],
+        });
+    } catch (error) {
+        console.log(error);
     }
+};
 
-    // Persist the message to the db and send a reaction indicating so.
-    guildInfo.welcomeMsgs.push(newWelcome);
-    await client.updateGuildInDb(message.guild, guildInfo);
-    message.react('✅');
+const getLimitReachedEmbed = slash => new MessageEmbed()
+    .setTitle('Message limit reached!')
+    .setColor(tools.embedWarnColour)
+    .setDescription('You cannot add any more messages (20 message limit)\nExisting messages must be deleted first before adding new ones.')
+    .setFooter(`${slash ? '/list' : '.implist'} to see all exisitng messages`);
 
-    tools.sendToLogs(client, `Added welcome message \`${newWelcome}\` to ${message.guild.name}`);
-    console.log(`Added welcome message \`${newWelcome}\` to ${message.guild.name}`);
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('add')
+        .setDescription('Add a welcome message')
+        .addStringOption(opt =>
+            opt.setName('message')
+                .setDescription('The message to use')
+                .setRequired(true)),
+    execute,
 };

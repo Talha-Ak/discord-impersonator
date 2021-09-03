@@ -1,7 +1,20 @@
+const { RateLimitData, Client } = require('discord.js');
 const tools = require('../tools');
 
-module.exports = async (client, limitInfo) => {
+/**
+ * Log ratelimit error.
+ * @param {RateLimitData} limitInfo
+ * @param {Client} client
+ */
+const execute = async (limitInfo, client) => {
     console.log('Rate limited!');
     console.log(limitInfo);
-    tools.sendToLogs(client, `Rate limited! Timeout: ${limitInfo.timeout}, limit: ${limitInfo.limit}, Path: ${limitInfo.path}, route: ${limitInfo.route}`);
+};
+
+/**
+ * Event when the bot is ratelimited.
+ */
+module.exports = {
+    name: 'rateLimit',
+    execute,
 };

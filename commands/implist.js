@@ -1,50 +1,75 @@
-const { MessageEmbed, Client, Message } = require('discord.js');
+const { MessageEmbed } = require('discord.js');
+const { SlashCommandBuilder } = require('@discordjs/builders');
+const tools = require('../tools');
 
-/**
- * Lists all welcome messages the server has.
- * Command format: implist [number]
- * @param {Client} client
- * @param {Message} message
- * @param {string[]} args
- */
-exports.run = async (client, message, args, guildInfo) => {
+const execute = async (interaction, dbGuildInfo) => {
+    // Defer reply so we have enough time to respond.
+    await interaction.deferReply();
+    const msgIdx = interaction.options.getInteger('id');
 
-    // If an additional arg specified, try to find corresponding index of welcome message.
-    if (args[0]) {
+    // If message id supplied, find the corresponding welcome message.
+    if (msgIdx) {
+        const messageText = { embeds: [getMessageEmbed(dbGuildInfo, msgIdx) ?? getMessageNotFoundEmbed(msgIdx, false)] };
+        await interaction.editReply(messageText);
 
-        if (guildInfo.welcomeMsgs && guildInfo.welcomeMsgs.length >= args[0]) {
-            message.channel.send(`Welcome message #${args[0]}: ${guildInfo.welcomeMsgs[args[0] - 1]}`);
-        } else {
-            message.channel.send('That welcome message does not exist.');
-        }
-
-    } else if (guildInfo.welcomeMsgs) {
-        // If no arg specific, list all welcome messages the server has set.
-        let description = '__These are your welcome messages:__\n';
-
-        // Truncate any long welcome messages while listing them all.
-        guildInfo.welcomeMsgs.forEach((welcome, i) => {
-            if (welcome.length <= 82) {
-                description += `${i + 1}: ${welcome}\n`;
-            } else {
-                description += `${i + 1}: ${welcome.substring(0, 79)}...\n`;
-            }
-        });
-
-        description += `\nMessages can be deleted with ${guildInfo.prefix}impdel \`number\``;
-        description += `\n${guildInfo.welcomeMsgs.length}/20 messages`;
-
-        // Create and send the actual message.
-        const embed = new MessageEmbed()
-            .setTitle('Welcome messages')
-            .setColor('#444444')
-            .setDescription(description)
-            .setTimestamp()
-            .setFooter(`${guildInfo.prefix}implist <number> shows entire message`);
-
-        message.channel.send(embed);
+        // Otherwise, list all messages saved (or notify user there are no messages).
+    } else if (dbGuildInfo.welcomeMsgs.length > 0) {
+        await interaction.editReply({ embeds: [generateListEmbed(dbGuildInfo, true)] });
     } else {
-        message.channel.send(`No welcome messages have been setup for this server. Add messages with ${guildInfo.prefix}impadd`);
+        await interaction.editReply({ embeds: [getNoMessagesEmbed(true)] });
     }
+};
 
+const getMessageEmbed = (guildInfo, id) => {
+    if (guildInfo.welcomeMsgs && guildInfo.welcomeMsgs.length >= id) {
+        return new MessageEmbed().setTitle(`Message #${id}`)
+            .setColor(tools.embedNoColour)
+            .setDescription(`\`${guildInfo.welcomeMsgs[id - 1]}\``);
+    }
+};
+
+const getNoMessagesEmbed = slash => new MessageEmbed()
+    .setTitle('No welcome messages')
+    .setColor(tools.embedNoColour)
+    .setDescription(`No welcome messages have been setup for this server.\nAdd messages with ${slash ? '/add' : '.impadd'}`);
+
+const getMessageNotFoundEmbed = (number, slash) => new MessageEmbed()
+    .setTitle('Message not found!')
+    .setColor(tools.embedWarnColour)
+    .setDescription(`No welcome message at \`#${number}\` was found.`)
+    .setFooter(`${slash ? '/list' : '.implist'} to see all existing messages`);
+
+const generateListEmbed = (guildInfo, slash) => {
+    // List all welcome messages the server has set.
+    let description = '__These are your welcome messages:__\n';
+
+    // Truncate any long welcome messages while listing them all.
+    guildInfo.welcomeMsgs.forEach((welcome, i) => {
+        if (welcome.length <= 82) {
+            description += `${i + 1}: ${welcome}\n`;
+        } else {
+            description += `${i + 1}: ${welcome.substring(0, 79)}...\n`;
+        }
+    });
+
+    description += `\nMessages can be deleted with ${slash ? '/delete' : '.impdelete'} \`number\``;
+    description += `\n${guildInfo.welcomeMsgs.length}/20 messages`;
+
+    // Create the actual message.
+    return new MessageEmbed()
+        .setTitle('Welcome messages')
+        .setColor(tools.embedNoColour)
+        .setDescription(description)
+        .setTimestamp()
+        .setFooter(`${slash ? '/list' : '.implist'} <number> shows entire message`);
+};
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('list')
+        .setDescription('View all welcome messages')
+        .addIntegerOption(opt =>
+            opt.setName('position')
+                .setDescription('The welcome message to view')),
+    execute,
 };

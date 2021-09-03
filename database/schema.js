@@ -8,10 +8,6 @@ const guildSchema = new mongoose.Schema({
     guildID: String,
     webhookID: String,
     roleID: String,
-    prefix: {
-        type: String,
-        default: defaults.prefix,
-    },
     welcomeMsgs: {
         type: [String],
         default: defaults.welcomeMsgs,

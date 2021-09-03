@@ -1,49 +1,49 @@
-const { Role, Client, Message } = require('discord.js');
+const { Role, Permissions } = require('discord.js');
+const { SlashCommandBuilder } = require('@discordjs/builders');
 
-/**
- * Configures the role which is allowed to use Impersonator commands in that guild.
- * Command format: impallow <@role/roleId/"NONE">
- * @param {Client} client
- * @param {Message} message
- * @param {string[]} args
- */
-exports.run = async (client, message, args, guildInfo) => {
+const execute = async (interaction, dbGuildInfo) => {
+    // Defer reply so we have enough time to respond.
+    await interaction.deferReply();
 
-    // Check if admin using this command.
-    if (!message.member.hasPermission('MANAGE_GUILD')) return message.reply('you can\'t use that command.');
-
-    // Check if the admin wants the clear the allowed role.
-    if (args[0] && args[0].toLowerCase() == 'none') {
-        guildInfo.roleID = '';
-    } else if (args[0] && (args[0].toLowerCase() == 'all' || args[0].toLowerCase() == '@everyone')) {
-        guildInfo.roleID = '-1';
-    } else {
-
-        // Find the role mentioned in the command, or the role ID.
-        let taggedRole = message.mentions.roles.first();
-        if (!taggedRole) {
-            taggedRole = await message.guild.roles.fetch(args[0]);
-
-            // If no role is mentioned, show usage help.
-            if (typeof taggedRole !== Role) {
-                let usageText = '';
-
-                if (guildInfo.roleID == '-1') {
-                    usageText = 'Currently everybody can use Impersonator';
-                } else if (guildInfo.roleID) {
-                    const currentRole = await message.guild.roles.fetch(guildInfo.roleID);
-                    usageText = `Currently server managers and people with the \`${currentRole.name}\` role can use Impersonator`;
-                } else {
-                    usageText = 'Currently only server managers can use impersonator';
-                }
-
-                return message.channel.send(`Usage: ${guildInfo.prefix}impallow \`@role/ID\` or \`NONE\` or \`ALL\` | ${usageText}`);
-            }
-        }
-
-        guildInfo.roleID = taggedRole.id;
+    // Check if people other than admin are using this command.
+    if (!interaction.member.permissions.has(Permissions.FLAGS.MANAGE_GUILD)) {
+        await interaction.editReply({
+            content: '❗ Only people with the Manage Servers permission (or an admin) can use this command.',
+            ephemeral: true,
+        });
+        return;
     }
 
-    await client.updateGuildInDb(message.guild, guildInfo);
-    message.react('✅');
+    try {
+        if (interaction.options.getSubcommand() === 'none') {
+            dbGuildInfo.roleID = '';
+            await interaction.client.updateGuildInDb(interaction.guild, dbGuildInfo);
+            await interaction.editReply('Updated - Only server managers can use impersonator');
+        } else if (interaction.options.getSubcommand() === 'role') {
+            const role = interaction.options.getRole('role');
+            dbGuildInfo.roleID = role.id;
+            await interaction.client.updateGuildInDb(interaction.guild, dbGuildInfo);
+            await interaction.editReply(`Updated - Only server managers and \`${role.name}\` can use impersonator`);
+        }
+    } catch (error) {
+        console.log(error);
+    }
+
+};
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('allow')
+        .setDescription('Configure role to use impersonator')
+        .addSubcommand(subcmd =>
+            subcmd.setName('none')
+                .setDescription('Remove the role allowed'))
+        .addSubcommand(subcmd =>
+            subcmd.setName('role')
+                .setDescription('Set allowed role to use impersonator')
+                .addRoleOption((opt =>
+                    opt.setName('role')
+                        .setDescription('Select the role that can use impersonator')
+                        .setRequired(true)))),
+    execute,
 };

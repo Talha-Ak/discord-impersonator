@@ -1,4 +1,4 @@
-require('dotenv-flow').config();
+require('dotenv').config();
 const mongoose = require('mongoose');
 
 /**
@@ -14,7 +14,6 @@ module.exports = {
             useFindAndModify: false,
         };
 
-        // Change the below URL to another MongoDB database if not using MongoDB Atlas.
         mongoose.connect(`mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.m0znd.mongodb.net/${process.env.DB}?retryWrites=true&w=majority`, dbOptions);
 
         mongoose.connection.on('connected', () => console.log('Connected to MongoDB server.'));

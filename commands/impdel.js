@@ -1,33 +1,48 @@
-const { Client, Message } = require('discord.js');
+const { MessageEmbed } = require('discord.js');
+const { SlashCommandBuilder } = require('@discordjs/builders');
 const tools = require('../tools');
 
-/**
- * Deletes a welcome message associated with the guild.
- * Command format: impdel <number>
- * @param {Client} client
- * @param {Message} message
- * @param {string[]} args
- */
-exports.run = async (client, message, args, guildInfo) => {
+const execute = async (interaction, dbGuildInfo) => {
+    // Defer reply so we have enough time to fetch data from db.
+    await interaction.deferReply();
+    const msgIdx = interaction.options.getInteger('position');
 
-    // Show usage info if no arg provided.
-    if (!args[0]) {
-        message.channel.send(`Usage: ${guildInfo.prefix}ImpDel \`number\` | Use ${guildInfo.prefix}ImpList to see message numbers.`);
+    // Reject delete if id outside message array.
+    if (dbGuildInfo.welcomeMsgs?.length < msgIdx) {
+        await interaction.editReply({ embeds: [getNotExistEmbed(msgIdx, true)] });
         return;
     }
 
-    if (guildInfo.welcomeMsgs && guildInfo.welcomeMsgs.length >= args[0]) {
+    const deletedMsg = dbGuildInfo.welcomeMsgs.splice(msgIdx - 1, 1);
 
-        // Remove message from array and save new array to db.
-        const deletedMsg = guildInfo.welcomeMsgs.splice(args[0] - 1, 1);
-        await client.updateGuildInDb(message.guild, guildInfo);
-
-        message.channel.send(`Welcome message #${args[0]} was deleted: \`${deletedMsg[0]}\``);
-        client.commands.get('implist').run(client, message, '', guildInfo);
-
-        tools.sendToLogs(client, `Removed welcome message \`${deletedMsg[0]}\` from ${message.guild.name}`);
-        console.log(`Removed welcome message to ${message.guild.name}`);
-    } else {
-        message.channel.send(`Welcome message number #\`${args[0]}\` does not exist.`);
+    // Push new message list to database.
+    try {
+        await interaction.client.updateGuildInDb(interaction.guild, dbGuildInfo);
+        await interaction.editReply({ embeds: [getMessageDeletedEmbed(msgIdx, deletedMsg[0], true)] });
+    } catch (error) {
+        console.log(error);
     }
+};
+
+const getNotExistEmbed = (number, slash) => new MessageEmbed()
+    .setTitle('Invalid position!')
+    .setColor(tools.embedWarnColour)
+    .setDescription(`A welcome message with number \`#${number}\` does not exist.`)
+    .setFooter(`${slash ? '/list' : '.implist'} to see all exisitng messages`);
+
+const getMessageDeletedEmbed = (number, message, slash) => new MessageEmbed()
+    .setTitle('Message deleted')
+    .setColor(tools.embedNeutralColour)
+    .setDescription(`Welcome message \`#${number}\` was deleted:\n\`${message}\``)
+    .setFooter(`${slash ? '/list' : '.implist'} to see all exisitng messages`);
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('delete')
+        .setDescription('Delete a welcome message')
+        .addIntegerOption(opt =>
+            opt.setName('position')
+                .setDescription('The position of the welcome message to delete (see /list)')
+                .setRequired(true)),
+    execute,
 };

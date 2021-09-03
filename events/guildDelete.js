@@ -1,15 +1,19 @@
-const { Client, Guild } = require('discord.js');
-const tools = require('../tools');
+const { Guild } = require('discord.js');
 
 /**
- * This runs when the bot is removed from the guild. All data associated with the bot is deleted.
- * @param {Client} client
+ * All data associated with the bot is deleted.
  * @param {Guild} guild
  */
-module.exports = async (client, guild) => {
+const execute = async (guild) => {
+    await guild.client.deleteGuildInDb(guild);
 
-    await client.deleteGuildInDb(guild);
-
-    tools.sendToJoins(client, `Removed from ${guild.name} | ${guild.id}`);
     console.log(`Guild ${guild.name} | ${guild.id} removed.`);
+};
+
+/**
+ * Event when the bot is removed from the guild.
+ */
+module.exports = {
+    name: 'guildDelete',
+    execute,
 };

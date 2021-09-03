@@ -1,29 +1,30 @@
-const { MessageEmbed, Client, Message } = require('discord.js');
+const { MessageEmbed } = require('discord.js');
+const { embedNoColour } = require('../tools');
+const { SlashCommandBuilder } = require('@discordjs/builders');
+
+const execute = async (interaction) => {
+    const embed = new MessageEmbed()
+        .setAuthor('Help menu')
+        .setColor(embedNoColour)
+        .setDescription('Change welcome channel: Server Settings > Integrations > impersonator\n[Invite it to your server](https://discord.com/oauth2/authorize?client_id=749282568733458545&permissions=537160768&scope=bot%20applications.commands)\n')
+        .addField('Add message', 'add `message`', true)
+        .addField('List messages', 'list | list `number`', true)
+        .addField('Delete message', 'delete `number`', true)
+        .addField('Message as user', 'say `@user` `message` `<#channel>`', true)
+        .addField('Allow a role to use bot', 'allow `@role`', true)
+        .addField('Make & send a custom message', 'make `name` `avatar link` `message` `<#channel>`', true)
+        .setTimestamp()
+        .setFooter('Impersonator', interaction.client.user.displayAvatarURL());
+
+    await interaction.reply({ embeds: [embed] });
+};
 
 /**
  * Sends a help message to the guild.
- * Command format: imphelp
- * @param {Client} client
- * @param {Message} message
- * @param {string[]} args
  */
-exports.run = async (client, message, args, guildInfo) => {
-
-    const embed = new MessageEmbed()
-        .setAuthor('Help menu')
-        .setTitle('View video tutorial')
-        .setURL('https://youtu.be/VMD_GDEzA38')
-        .setColor('#444444')
-        .setDescription(`Prefix any commands given with \`${guildInfo.prefix}\`\nChange welcome channel: Server Settings > Integrations > impersonator\nNeed help? [Visit our support server](https://discord.gg/MHHd7tD) or [invite it to your server](https://bit.ly/3lFysPr)\n`)
-        .addField('Add message', 'impadd `message`', true)
-        .addField('List messages', 'implist | implist `number`', true)
-        .addField('Delete message', 'impdel `number`', true)
-        .addField('Message as user', 'impsay `@user/ID` `#CHANNEL` `message`', true)
-        // .addField('Change prefix', 'impprefix `prefix`', true)
-        .addField('Allow a role to use bot', 'impallow `@role/ID` or `NONE/ALL`', true)
-        .addField('Make & send a custom message', 'impmake `name` `avatar link` `#CHANNEL` `message`', true)
-        .setTimestamp()
-        .setFooter('Impersonator', client.user.displayAvatarURL());
-
-    message.channel.send(embed);
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('help')
+        .setDescription('Shows help information about impersonator'),
+    execute,
 };

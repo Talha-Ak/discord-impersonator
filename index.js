@@ -1,45 +1,48 @@
 // Get references to node modules
-const Discord = require('discord.js');
+const { Client, Intents, Collection } = require('discord.js');
 const fs = require('fs');
-require('dotenv-flow').config();
+require('dotenv').config();
 
 // Init Discord client
-const client = new Discord.Client({ ws: { intents: ['GUILDS', 'GUILD_MESSAGES', 'GUILD_MEMBERS', 'GUILD_WEBHOOKS'] } });
+const client = new Client({
+    intents: [
+        Intents.FLAGS.GUILDS,
+        Intents.FLAGS.GUILD_MESSAGES,
+        Intents.FLAGS.GUILD_MEMBERS,
+        Intents.FLAGS.GUILD_WEBHOOKS,
+    ],
+});
 
 // Add db, commands and config to client
-client.commands = new Discord.Collection();
-client.cooldowns = new Discord.Collection();
+client.commands = new Collection();
+client.cooldowns = new Collection();
 client.mongoose = require('./database/mongoose');
 client.config = require('./config');
 require('./database/functions')(client);
 
 // Register all events
-fs.readdir('./events/', async (err, files) => {
-    if (err) return console.error(err);
-    files.forEach(file => {
-        if (!file.endsWith('.js')) return;
-        const evnt = require(`./events/${file}`);
-        const evntName = file.split('.')[0];
-        console.log(`Loaded ${evntName} event`);
-        client.on(evntName, evnt.bind(null, client));
-    });
-});
+const eventFiles = fs.readdirSync('./events').filter(file => file.endsWith('.js'));
+for (const file of eventFiles) {
+    const event = require(`./events/${file}`);
+    if (event.once) {
+        client.once(event.name, (...args) => event.execute(...args, client));
+    } else {
+        client.on(event.name, (...args) => event.execute(...args, client));
+    }
+    console.log(`Event ${event.name} registered`);
+}
 
 // Add all commands
-fs.readdir('./commands/', async (err, files) => {
-    if (err) return console.error(err);
-    files.forEach(file => {
-        if (!file.endsWith('.js')) return;
-        const properties = require(`./commands/${file}`);
-        const cmdName = file.split('.')[0];
-        console.log(`Loaded ${cmdName} cmd`);
-        client.commands.set(cmdName, properties);
-    });
-});
+const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+for (const file of commandFiles) {
+    const command = require(`./commands/${file}`);
+    client.commands.set(command.data.name, command);
+    console.log(`Command ${command.data.name} registered`);
+}
 
 // Log unhandled promise rejections.
-process.on('unhandledRejection', error => {
-	console.error('Unhandled promise rejection:', error);
+process.on('unhandledRejection', (error) => {
+    console.error('Unhandled promise rejection:', error);
 });
 
 client.mongoose.init();

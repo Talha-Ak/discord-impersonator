@@ -1,85 +1,122 @@
-const { WebhookClient, Client, Message, DiscordAPIError } = require('discord.js');
+const { DiscordAPIError, Permissions, MessageEmbed, Constants } = require('discord.js');
+const { SlashCommandBuilder } = require('@discordjs/builders');
 const { FetchError } = require('node-fetch');
 const tools = require('../tools');
 
-/**
- * Lets a user send a message as a custom "user" with a customaisable name and avatar.
- * Command format: impmake <name> <avatarUrl> [channel] <message>
- * @param {Client} client
- * @param {Message} message
- * @param {string[]} args
- */
-exports.run = async (client, message, args, guildInfo) => {
+const execute = async (interaction, dbGuildInfo) => {
+    // Defer reply so there is enough time to fetch data from network.
+    await interaction.deferReply({ ephemeral: true });
 
-    // Check if the bot has the permissions needed to work.
-    const requiredPerms = ['MANAGE_WEBHOOKS', 'MANAGE_MESSAGES'];
-    if (!message.guild.me.hasPermission(requiredPerms)) {
-        return await tools.getAvailableTextChannel(message.guild, message.channel).send('Impersonator requires Manage Webhooks permission, and this command requires Manage Messages permission to delete your command once acknowledged.');
+    // Check if the bot has required perms before executing.
+    const requiredPerms = [Permissions.FLAGS.MANAGE_WEBHOOKS];
+    if (!interaction.guild.me.permissions.has(requiredPerms)) {
+        return await interaction.editReply({
+            embeds: [new MessageEmbed()
+                .setTitle('Missing permissions!')
+                .setColor(tools.embedWarnColour)
+                .setDescription('Impersonator needs the `Manage Webhooks` permission to run this command.')],
+            ephemeral: true,
+        });
     }
 
-    // Get mentioned channel and message. If not channel mentioned, get current channel.
-    let sendingChannel = message.mentions.channels.first();
-    let msg = args.slice(3).join(' ');
-    if (!sendingChannel) {
-        sendingChannel = message.channel;
-        msg = args.slice(2).join(' ');
+    // Check if a valid channel was given.
+    const sendingChannel = interaction.options.getChannel('channel') ?? interaction.channel;
+    if (!sendingChannel.isText()) {
+        return await interaction.editReply({
+            embeds: [new MessageEmbed()
+                .setTitle('Invalid channel!')
+                .setColor(tools.embedWarnColour)
+                .setDescription('The channel given must be text-based channel.')],
+            ephemeral: true,
+        });
     }
 
-    // If missing an arg or no message content, show usage info.
-    if (!args[2] || msg.length < 1) {
-        return message.channel.send(
-            `Usage: ${guildInfo.prefix}impmake \`name\` \`link for avatar\` \`#CHANNEL\` \`message\` --- name must have no spaces, #CHANNEL is optional and defaults to current channel`);
+    // Webhooks are not allowed to be named 'clyde' and must be renamed if so.
+    // https://discord.com/developers/docs/resources/webhook#create-webhook
+    const sendingName = interaction.options.getString('name').replace(/clyde/gi, 'clyed');
+    let sendingImage = interaction.options.getString('image');
+    if (!(sendingImage.startsWith('https://') || sendingImage.startsWith('http://'))) {
+        sendingImage = `https://${sendingImage}`;
     }
+    const sendingMessage = interaction.options.getString('message');
 
+    const properties = {
+        name: sendingName,
+        avatar: sendingImage,
+        channel: sendingChannel,
+    };
+
+    // Fetch the webhook.
+    let webhook;
     try {
-        if (!guildInfo.webhookID) {
-            await tools.repairMissingWebhook(client, message.guild, guildInfo);
+        webhook = await interaction.client.fetchWebhook(dbGuildInfo.webhookID);
+    } catch (error) {
+        if (error instanceof DiscordAPIError && (error.code === 0 || error.code === Constants.APIErrors.UNKNOWN_WEBHOOK)) {
+            webhook = await tools.repairMissingWebhook(interaction.guild, dbGuildInfo);
         }
-
-        const webhook = await client.fetchWebhook(guildInfo.webhookID);
-        const webhookChannel = webhook.channelID;
-
-        const givenName = args[0].replace(/clyde/gi, 'clyed');
-        let givenUrl = args[1];
-        if (!(givenUrl.startsWith('https://') || givenUrl.startsWith('http://'))) {
-            givenUrl = `https://${args[1]}`;
-        }
-
-        // Edit the webhook's properties to be the given name and avatar.
-        // Webhooks are not allowed to be named 'clyde' and must be renamed if so.
-        // https://discord.com/developers/docs/resources/webhook#create-webhook
-        await webhook.edit({
-            name: givenName,
-            avatar: givenUrl,
-            channel: sendingChannel,
-        }, `Executing impmake command, used by ${message.author.username}`);
-
-        // Send the custom message and delete the command message.
-        await webhook.send(msg);
-        await message.delete();
-
-        // Revert the webhook back to it's default details.
-        webhook.edit({
-            name: client.config.webhookName,
-            avatar: client.config.webhookAvatar,
-            channel: webhookChannel,
-        }, 'Change webhook to default details');
-
-    } catch (err) {
-        if (err instanceof DiscordAPIError) {
-            if (err.httpStatus == 404) {
-                tools.sendToLogs(client, `Trying to repair webhook 404 at ${message.guild.name} | ${message.guild.id}`);
-                const foundWebhook = await tools.repairMissingWebhook(client, message.guild, guildInfo);
-                if (foundWebhook) return client.commands.get('impmake').run(client, message, args, guildInfo);
-            }
-        } else if (err instanceof FetchError) {
-            message.channel.send('Invalid link. Link must be an image file.');
-            return;
-        }
-        tools.sendToLogs(client, `🔥 Problem happened with impmake in: ${message.guild.name} | ${message.guild.id}`);
-        tools.sendToLogs(client, err.stack);
-        console.error(err);
-        message.channel.send('Something went wrong... \nPossible causes: Invalid link / Spaces in name');
-        return;
     }
+
+    // Check if the existing webhook already matches the user arguments.
+    // If so, skip editing the webhook and send.
+    const identicalWebhook = webhook.name === properties.name
+        && webhook.avatar === properties.avatar
+        && webhook.channelId === properties.channel.id;
+
+    if (!identicalWebhook) {
+        try {
+            await webhook.edit(properties, `Executing "say" command from ${interaction.user.tag}`);
+        } catch (error) {
+            if (error instanceof DiscordAPIError && error.code === Constants.APIErrors.UNKNOWN_WEBHOOK) {
+                webhook = await tools.repairMissingWebhook(interaction.guild, dbGuildInfo);
+                try {
+                    await webhook.edit(properties, `Executing "say" command from ${interaction.user.tag}`);
+                } catch (editError) {
+                    console.error(editError);
+
+                    return await interaction.editReply({
+                        embeds: [new MessageEmbed()
+                            .setColor(tools.embedWarnColour)
+                            .setDescription('Something went wrong trying to run that...')],
+                    });
+                }
+            } else if (error instanceof FetchError) {
+                return await interaction.editReply({
+                    embeds: [new MessageEmbed()
+                        .setTitle('Invalid link!')
+                        .setColor(tools.embedWarnColour)
+                        .setDescription('The link given couldn\'t be used as an avatar.')],
+                });
+            }
+        }
+    }
+
+    // Send the custom message.
+    await webhook.send(sendingMessage);
+    await interaction.editReply({
+        embeds: [new MessageEmbed()
+            .setColor(tools.embedNeutralColour)
+            .setDescription(`Message sent to ${sendingChannel}`)],
+    });
+};
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('make')
+        .setDescription('Create a custom message')
+        .addStringOption(opt =>
+            opt.setName('name')
+                .setDescription('The name the custom message is sent from')
+                .setRequired(true))
+        .addStringOption(opt =>
+            opt.setName('image')
+                .setDescription('The URL of the image to show (.jpg/.png)')
+                .setRequired(true))
+        .addStringOption(opt =>
+            opt.setName('message')
+                .setDescription('The message to send')
+                .setRequired(true))
+        .addChannelOption(opt =>
+            opt.setName('channel')
+                .setDescription('The channel the message is sent to (default: current channel)')),
+    execute,
 };

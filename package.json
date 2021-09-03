@@ -8,14 +8,20 @@
     "start": "node index.js"
   },
   "engines": {
-    "node": "12.17.0",
+    "node": "16.6",
     "npm": "*"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^12.4.1",
-    "dotenv-flow": "^3.2.0",
-    "mongoose": "^5.10.2"
+    "@discordjs/builders": "^0.5.0",
+    "@discordjs/rest": "^0.1.0-canary.0",
+    "discord-api-types": "^0.22.0",
+    "discord.js": "^13.1.0",
+    "dotenv": "^10.0.0",
+    "mongoose": "^5.13.6"
+  },
+  "devDependencies": {
+    "eslint": "^7.32.0"
   }
 }
