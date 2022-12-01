@@ -1,5 +1,5 @@
-const botInviteUrl =
-  'https://discord.com/api/oauth2/authorize?client_id=749282568733458545&permissions=536890432&scope=bot%20applications.commands';
+const botInviteUrl: string =
+  "https://discord.com/api/oauth2/authorize?client_id=749282568733458545&permissions=536890432&scope=bot%20applications.commands";
 
 const colours: { confirm: number; warn: number; gray: number } = {
   confirm: 0x0c4880,
@@ -7,18 +7,18 @@ const colours: { confirm: number; warn: number; gray: number } = {
   gray: 0x2f3136,
 };
 
-const owners: string[] = ['123456789'];
+const owners: string[] = ["123456789"];
 
 const schemaVersion = 1;
 
-const supportServerUrl = '';
+const supportServerUrl: string = "";
 
 const webhookDefaults: { name: string; avatar: string } = {
-  name: 'Impersonator Webhook',
-  avatar: '',
+  name: "Impersonator Webhook",
+  avatar: "",
 };
 
-const welcomeDefaults: string[] = ['Hello!'];
+const welcomeDefaults: string[] = ["Hello!"];
 
 export default {
   botInviteUrl,
