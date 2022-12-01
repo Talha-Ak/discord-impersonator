@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Node 16 + Strictest",
+  "include": ["./src/**/*"],
+  "compilerOptions": {
+    "lib": [
+      "es2021"
+    ],
+    "module": "commonjs",
+    "target": "es2021",
+    "rootDir": "./src",
+    "outDir": "./out",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "importsNotUsedAsValues": "error",
+    "checkJs": true
+  }
+}

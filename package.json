@@ -1,27 +1,32 @@
 {
-  "name": "impersonator",
-  "version": "1.0.0",
+  "name": "discord-impersonator",
+  "version": "2.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "./out/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "watch": "tsc -p tsconfig.json -w",
+    "build": "tsc -p tsconfig.json",
+    "start": "node ./out/index.js",
+    "deploy": "node ./out/deploy-commands.js local",
+    "deploy:global": "node ./out/deploy-commands.js global",
+    "lint": "eslint ."
   },
-  "engines": {
-    "node": "16.6",
-    "npm": "*"
-  },
+  "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@discordjs/builders": "^0.5.0",
-    "@discordjs/rest": "^0.1.0-canary.0",
-    "discord-api-types": "^0.22.0",
-    "discord.js": "^13.1.0",
-    "dotenv": "^10.0.0",
-    "mongoose": "^5.13.6"
-  },
   "devDependencies": {
-    "eslint": "^7.32.0"
+    "@types/eslint": "^8.4.6",
+    "@types/node": "^18.7.14",
+    "@typescript-eslint/eslint-plugin": "^5.36.1",
+    "@typescript-eslint/parser": "^5.36.1",
+    "eslint": "^8.23.0",
+    "typescript": "^4.8.2"
+  },
+  "dependencies": {
+    "@discordjs/rest": "^1.1.0",
+    "discord-api-types": "^0.37.5",
+    "discord.js": "^14.3.0",
+    "dotenv": "^16.0.2",
+    "mongoose": "^6.5.4"
   }
 }
